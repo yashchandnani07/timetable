@@ -12,14 +12,15 @@ from typing import Dict, List, Tuple, Any
 
 class TimetableGenerator:
     def __init__(self):
-        # Fixed time structure
+        # Fixed time structure - includes break slot
         self.time_slots = [
             "10:30-11:30", "11:30-12:30", "12:30-1:30", 
+            "1:30-2:00",   # Break slot - not schedulable
             "2:00-3:00", "3:00-4:00", "4:00-5:00", "5:00-6:00"
         ]
         # Note: 1:30-2:00 is a break and not a schedulable slot
-        self.schedulable_slots = [0, 1, 2, 3, 4, 5, 6]  # All slots except break
-        self.break_slot_index = None  # We'll handle break properly in constraints
+        self.break_slot_index = 3  # Index of break slot
+        self.schedulable_slots = [0, 1, 2, 4, 5, 6, 7]  # All slots except break
         
         self.days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
         self.divisions = ["TY_A", "TY_B"]
@@ -284,7 +285,7 @@ class TimetableGenerator:
         print(f"Divisions: {', '.join(self.divisions)}")
         print(f"Days: {', '.join(self.days)}")
         print(f"Time Slots: {', '.join(self.time_slots)}")
-        print("(Note: 1:30-2:00 is a break and not a schedulable slot)")
+        print("(Note: 1:30-2:00 is a mandatory break and not schedulable)")
         
         print("\nSubjects:")
         for subject, info in self.subjects.items():
@@ -307,6 +308,11 @@ class TimetableGenerator:
             self.schedule_vars[day_idx] = {}
             for slot_idx in range(len(self.time_slots)):
                 self.schedule_vars[day_idx][slot_idx] = {}
+                
+                # Skip creating variables for break slot
+                if slot_idx == self.break_slot_index:
+                    continue
+                    
                 for div_idx in range(len(self.divisions)):
                     self.schedule_vars[day_idx][slot_idx][div_idx] = {}
                     for subject in self.subjects:
@@ -333,6 +339,11 @@ class TimetableGenerator:
             self.teacher_schedule[day_idx] = {}
             for slot_idx in range(len(self.time_slots)):
                 self.teacher_schedule[day_idx][slot_idx] = {}
+                
+                # Skip creating variables for break slot
+                if slot_idx == self.break_slot_index:
+                    continue
+                    
                 for teacher_id in self.teachers:
                     self.teacher_schedule[day_idx][slot_idx][teacher_id] = \
                         self.model.NewBoolVar(f"teacher_{teacher_id}_{day_idx}_{slot_idx}")
@@ -340,9 +351,13 @@ class TimetableGenerator:
     def add_constraints(self):
         """Add all timetable constraints"""
         
-        # 1. Each slot can have at most one activity per division
+        # 1. Each slot can have at most one activity per division (skip break slot)
         for day_idx in range(len(self.days)):
             for slot_idx in range(len(self.time_slots)):
+                # Skip break slot
+                if slot_idx == self.break_slot_index:
+                    continue
+                    
                 for div_idx in range(len(self.divisions)):
                     slot_activities = []
                     
@@ -364,7 +379,7 @@ class TimetableGenerator:
                     if slot_activities:
                         self.model.Add(sum(slot_activities) <= 1)
         
-        # 2. Minimum lectures per week for each subject
+        # 2. Minimum lectures per week for each subject (skip break slot)
         for subject, requirements in self.subjects.items():
             for div_idx in range(len(self.divisions)):
                 # Theory lectures
@@ -372,6 +387,9 @@ class TimetableGenerator:
                     theory_lectures = []
                     for day_idx in range(len(self.days)):
                         for slot_idx in range(len(self.time_slots)):
+                            # Skip break slot
+                            if slot_idx == self.break_slot_index:
+                                continue
                             if "theory" in self.schedule_vars[day_idx][slot_idx][div_idx][subject]:
                                 theory_lectures.append(
                                     self.schedule_vars[day_idx][slot_idx][div_idx][subject]["theory"]
@@ -385,6 +403,9 @@ class TimetableGenerator:
                     practical_lectures = []
                     for day_idx in range(len(self.days)):
                         for slot_idx in range(len(self.time_slots)):
+                            # Skip break slot
+                            if slot_idx == self.break_slot_index:
+                                continue
                             if "practical" in self.schedule_vars[day_idx][slot_idx][div_idx][subject]:
                                 # Count practical as scheduled if any batch is assigned
                                 practical_vars_in_slot = []
@@ -407,6 +428,10 @@ class TimetableGenerator:
         # 3. Mutual exclusion: If Division A has practical, Division B must have theory (and vice versa)
         for day_idx in range(len(self.days)):
             for slot_idx in range(len(self.time_slots)):
+                # Skip break slot
+                if slot_idx == self.break_slot_index:
+                    continue
+                    
                 # Create boolean variables for whether each division has practical/theory in this slot
                 div_a_has_practical = self.model.NewBoolVar(f"div_a_has_practical_{day_idx}_{slot_idx}")
                 div_b_has_practical = self.model.NewBoolVar(f"div_b_has_practical_{day_idx}_{slot_idx}")
@@ -469,9 +494,13 @@ class TimetableGenerator:
                 self.model.AddImplication(div_a_has_practical, div_b_has_theory)
                 self.model.AddImplication(div_b_has_practical, div_a_has_theory)
         
-        # 4. Lab capacity constraint - each lab can host only one batch at a time
+        # 4. Lab capacity constraint - each lab can host only one batch at a time (skip break slot)
         for day_idx in range(len(self.days)):
             for slot_idx in range(len(self.time_slots)):
+                # Skip break slot
+                if slot_idx == self.break_slot_index:
+                    continue
+                    
                 for lab in self.labs:
                     lab_usage = []
                     for div_idx in range(len(self.divisions)):
@@ -486,9 +515,13 @@ class TimetableGenerator:
                     if lab_usage:
                         self.model.Add(sum(lab_usage) <= 1)
         
-        # 5. Teacher constraints
+        # 5. Teacher constraints (skip break slot)
         for day_idx in range(len(self.days)):
             for slot_idx in range(len(self.time_slots)):
+                # Skip break slot
+                if slot_idx == self.break_slot_index:
+                    continue
+                    
                 for teacher_id in self.teachers:
                     # Link teacher schedule with subject schedule
                     teacher_subjects_vars = []
@@ -501,13 +534,21 @@ class TimetableGenerator:
                                     self.schedule_vars[day_idx][slot_idx][div_idx][subject]["theory"]
                                 )
                             
-                            # Practical
+                            # Practical - count practical as one session per division per subject
                             if "practical" in self.schedule_vars[day_idx][slot_idx][div_idx][subject]:
+                                practical_vars_in_slot = []
                                 for batch in self.batches:
                                     for lab in self.schedule_vars[day_idx][slot_idx][div_idx][subject]["practical"][batch]:
-                                        teacher_subjects_vars.append(
+                                        practical_vars_in_slot.append(
                                             self.schedule_vars[day_idx][slot_idx][div_idx][subject]["practical"][batch][lab]
                                         )
+                                
+                                if practical_vars_in_slot:
+                                    # Create indicator for practical session
+                                    practical_indicator = self.model.NewBoolVar(f"teacher_practical_{teacher_id}_{day_idx}_{slot_idx}_{div_idx}_{subject}")
+                                    self.model.Add(sum(practical_vars_in_slot) >= 1).OnlyEnforceIf(practical_indicator)
+                                    self.model.Add(sum(practical_vars_in_slot) == 0).OnlyEnforceIf(practical_indicator.Not())
+                                    teacher_subjects_vars.append(practical_indicator)
                     
                     if teacher_subjects_vars:
                         # Teacher is busy if any of their subjects are scheduled
@@ -525,19 +566,24 @@ class TimetableGenerator:
         for day_idx in range(len(self.days)):
             for teacher_id in self.teachers:
                 for slot_idx in range(len(self.time_slots) - 1):
+                    # Skip if either slot is the break slot
+                    if slot_idx == self.break_slot_index or (slot_idx + 1) == self.break_slot_index:
+                        continue
+                    
                     # Cannot have consecutive lectures
-                    # Special handling for lunch break (slot 2 to slot 3: 12:30-1:30 to 2:00-3:00)
-                    # We treat the break as a natural break, so we don't explicitly prevent
-                    # consecutive lectures across the break
-                    if slot_idx != 2:  # Don't constrain across lunch break
-                        self.model.Add(
-                            self.teacher_schedule[day_idx][slot_idx][teacher_id] +
-                            self.teacher_schedule[day_idx][slot_idx + 1][teacher_id] <= 1
-                        )
+                    # Break slot naturally provides a break between slots 2 and 4
+                    self.model.Add(
+                        self.teacher_schedule[day_idx][slot_idx][teacher_id] +
+                        self.teacher_schedule[day_idx][slot_idx + 1][teacher_id] <= 1
+                    )
         
-        # 7. For practical sessions, all 3 batches must be assigned to labs if practical is scheduled
+        # 7. For practical sessions, all 3 batches must be assigned to labs if practical is scheduled (skip break slot)
         for day_idx in range(len(self.days)):
             for slot_idx in range(len(self.time_slots)):
+                # Skip break slot
+                if slot_idx == self.break_slot_index:
+                    continue
+                    
                 for div_idx in range(len(self.divisions)):
                     for subject in self.subjects:
                         if "practical" in self.schedule_vars[day_idx][slot_idx][div_idx][subject]:
@@ -595,6 +641,10 @@ class TimetableGenerator:
             timetable[day] = {}
             for slot_idx, slot in enumerate(self.time_slots):
                 timetable[day][slot] = {"TY_A": None, "TY_B": None}
+                
+                # Skip processing break slot for scheduling data
+                if slot_idx == self.break_slot_index:
+                    continue
                 
                 for div_idx, division in enumerate(self.divisions):
                     for subject in self.subjects:
@@ -655,9 +705,10 @@ class TimetableGenerator:
             print("-" * 120)
             
             for slot_idx, slot in enumerate(self.time_slots):
-                # Special handling for break time
-                if slot_idx == 3 and slot == "2:00-3:00":  # After the break
-                    print(f"{'1:30-2:00':<15} {'BREAK':<50} {'BREAK':<50}")
+                # Handle break slot display
+                if slot_idx == self.break_slot_index:
+                    print(f"{slot:<15} {'BREAK':<50} {'BREAK':<50}")
+                    continue
                 
                 div_a_info = timetable[day][slot]["TY_A"]
                 div_b_info = timetable[day][slot]["TY_B"]
@@ -707,11 +758,14 @@ class TimetableGenerator:
         # Calculate utilization
         total_slots = len(self.days) * len(self.time_slots) * len(self.divisions)
         
-        # Count teacher workload
+        # Count teacher workload (skip break slot)
         teacher_workload = {teacher_id: 0 for teacher_id in self.teachers}
         
         for day_idx in range(len(self.days)):
             for slot_idx in range(len(self.time_slots)):
+                # Skip break slot
+                if slot_idx == self.break_slot_index:
+                    continue
                 for teacher_id in self.teachers:
                     if self.solver.Value(self.teacher_schedule[day_idx][slot_idx][teacher_id]):
                         teacher_workload[teacher_id] += 1
@@ -724,7 +778,9 @@ class TimetableGenerator:
         
         # Lab utilization
         print(f"\nAvailable Labs: {', '.join(self.labs)}")
-        print(f"Total Time Slots: {len(self.days)} days × {len(self.time_slots)} slots = {len(self.days) * len(self.time_slots)} slots per division")
+        schedulable_slots_per_week = len(self.days) * (len(self.time_slots) - 1)  # -1 for break slot
+        print(f"Schedulable Time Slots: {len(self.days)} days × {len(self.time_slots) - 1} slots = {schedulable_slots_per_week} slots per division")
+        print(f"Break Time: {self.time_slots[self.break_slot_index]} (mandatory break, not schedulable)")
     
     def suggest_modifications(self):
         """Suggest modifications if no solution found"""
@@ -735,13 +791,14 @@ class TimetableGenerator:
         total_theory_req = sum(subj["theory_per_week"] for subj in self.subjects.values())
         total_practical_req = sum(subj["practical_per_week"] for subj in self.subjects.values())
         
-        available_slots = len(self.days) * len(self.time_slots)
+        schedulable_slots = len(self.days) * (len(self.time_slots) - 1)  # -1 for break slot
         
         print(f"Total theory lectures required per division per week: {total_theory_req}")
         print(f"Total practical lectures required per division per week: {total_practical_req}")
-        print(f"Available time slots per division per week: {available_slots}")
+        print(f"Available schedulable slots per division per week: {schedulable_slots}")
+        print(f"(Note: Break slot {self.time_slots[self.break_slot_index]} is excluded from scheduling)")
         
-        if total_theory_req + total_practical_req > available_slots:
+        if total_theory_req + total_practical_req > schedulable_slots:
             print("\n⚠️  OVERLOADED SCHEDULE:")
             print("The total required lectures exceed available time slots.")
             print("Suggestions:")
