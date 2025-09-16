@@ -1,0 +1,179 @@
+🚀 Project Overview
+1. Goal
+
+Automate timetable generation for college.
+
+Handle both theory + practical lectures with rules:
+
+If Div A has practical → Div B must have theory (and vice versa).
+
+Teacher can’t take back-to-back lectures.
+
+Practical batches must split (P, Q, R) across available labs.
+
+Flexible slots (not all need to be filled).
+
+2. Inputs
+
+Subjects (with type: Theory/Practical, required hours/week).
+
+Teachers (with ID, subject mapping).
+
+Classes (TY Div A & B).
+
+Labs (capacity + suitability).
+
+Constraints (teacher break, theory–practical balance).
+
+3. Outputs
+
+Timetable grid for both divisions:
+
+Days × Time slots.
+
+Assigns theory/practical sessions.
+
+Ensures rules are satisfied.
+
+4. Recommended Tech Stack
+Frontend (UI for input & output)
+
+React.js (Next.js if you want SEO & SSR) → Forms for entering teachers, subjects, constraints + timetable visualization.
+
+TailwindCSS → Quick, responsive styling.
+
+FullCalendar.js / Custom Table UI → Display timetable grid interactively.
+
+Backend (Logic + API)
+
+Node.js + Express → REST APIs to handle input/output.
+
+OR Django (Python) if you prefer stronger scheduling libraries (like OR-Tools).
+
+Database
+
+MongoDB → Flexible schema for subjects, teachers, labs, and constraints.
+
+Collections: teachers, subjects, classes, labs, timetables.
+
+Scheduling Algorithm (Core Brain)
+
+Constraint Satisfaction + Optimization:
+
+Google OR-Tools (Python, recommended) → Perfect for timetable generation.
+
+Alternative: Custom algorithm using Genetic Algorithm / Backtracking.
+
+Deployment
+
+Backend: Render / Railway / Heroku.
+
+Frontend: Vercel / Netlify.
+
+DB: MongoDB Atlas (cloud).
+
+5. Suggested Workflow
+
+Admin Inputs Data (teachers, subjects, labs, constraints) via frontend form.
+
+Backend Receives Data, stores in DB.
+
+Timetable Generator Module (Python OR-Tools microservice or Node.js logic) processes constraints.
+
+Generated Timetable saved in DB → returned to frontend.
+
+UI Displays Timetable → printable / exportable to Excel/PDF.
+
+6. Scalability
+
+Start with TY Div A & B only.
+
+Later extend to FY & SY, add more labs/teachers.
+
+Add admin dashboard for editing and regenerating timetables.
+📌 Functional Requirements
+
+User Input
+
+Add subjects (theory/practical, min lectures per week).
+
+Assign subjects to teachers (teacher ID mapping).
+
+Define classes/divisions (TY Div A & B).
+
+Enter practical lab details (Lab A, B, C with equipment suitability).
+
+Timetable Generation
+
+Auto-generate timetable for both divisions.
+
+Practical → divide class into 3 batches (P, Q, R).
+
+Ensure when Div A has practical → Div B has theory (and vice versa).
+
+No teacher should have consecutive lectures (must get a break).
+
+Theory + practical balance (both must appear).
+
+Slots may remain empty (students can leave early).
+
+Output
+
+Display timetable as a grid (Day × Time slots).
+
+Show division-wise timetable (A & B side by side).
+
+Printable / exportable (PDF, Excel).
+
+📌 Non-Functional Requirements
+
+Usability
+
+Simple web-based UI (forms for input, table/calendar view for output).
+
+Responsive design (desktop + mobile).
+
+Performance
+
+Timetable generation must finish in seconds, not minutes.
+
+Scalability
+
+Start with TY Div A & B → later support FY & SY.
+
+Easy to add more labs/teachers/subjects.
+
+Maintainability
+
+Separate frontend, backend, and scheduling engine for modular updates.
+
+Deployment
+
+Cloud-based (frontend on Vercel/Netlify, backend on Render, DB on MongoDB Atlas).
+📌 Constraints & Rules
+
+Only 3 labs available.
+
+Practical batch must be split into P, Q, R groups.
+
+A teacher cannot take back-to-back lectures.
+
+Each subject must have theory + practical sessions.
+
+Timetable runs in fixed slots:
+
+10:30–11:30
+
+11:30–12:30
+
+12:30–1:30
+
+1:30–2:00 (Break)
+
+2:00–3:00
+
+3:00–4:00
+
+4:00–5:00
+
+5:00–6:00
